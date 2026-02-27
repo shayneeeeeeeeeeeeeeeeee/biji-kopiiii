@@ -4,22 +4,20 @@ import path from "path";
 
 const knowledgeText = fs.readFileSync(
   path.join(process.cwd(), "data/knowledge.txt"),
-  "utf-8",
+  "utf-8"
 );
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-  model: "models/gemini-2.5-flash",
-});
-
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-  const { message } = req.body;
+    const model = genAI.getGenerativeModel({
+      model: "models/gemini-1.5-flash",
+    });
 
-  const prompt = `
+    const { message } = req.body;
+
+    const prompt = `
 Kamu adalah chatbot berbasis knowledge internal.
 
 ATURAN:
@@ -34,12 +32,17 @@ ${knowledgeText}
 ${message}
 `;
 
-  try {
     const result = await model.generateContent(prompt);
-    const response = result.response.text();
 
-    res.status(200).json({ reply: response });
-  } catch (error) {
-    res.status(500).json({ error: "Terjadi kesalahan." });
+    const text =
+      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      result?.response?.text?.() ||
+      "Tidak ada respon dari AI.";
+
+    return res.status(200).json({ reply: text });
+
+  } catch (err) {
+    console.error("RUNTIME ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
